@@ -1,0 +1,599 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "QByu4bKiROGt"
+   },
+   "source": [
+    "# CS 5683: Big Data Analytics\n",
+    "## Project - 1: Distributed Market Basket Analysis\n",
+    "\n",
+    "Name: Pankajdeer Bikumalla <br>\n",
+    "CWID: A20220181\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 258
+    },
+    "colab_type": "code",
+    "id": "VEd_mfQBRRn6",
+    "outputId": "16605f17-2ce9-4e4a-f5b0-d9f5858abeb2"
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Collecting pyspark\n",
+      "\u001b[?25l  Downloading https://files.pythonhosted.org/packages/f0/26/198fc8c0b98580f617cb03cb298c6056587b8f0447e20fa40c5b634ced77/pyspark-3.0.1.tar.gz (204.2MB)\n",
+      "\u001b[K     |████████████████████████████████| 204.2MB 54kB/s \n",
+      "\u001b[?25hCollecting py4j==0.10.9\n",
+      "\u001b[?25l  Downloading https://files.pythonhosted.org/packages/9e/b6/6a4fb90cd235dc8e265a6a2067f2a2c99f0d91787f06aca4bcf7c23f3f80/py4j-0.10.9-py2.py3-none-any.whl (198kB)\n",
+      "\u001b[K     |████████████████████████████████| 204kB 37.5MB/s \n",
+      "\u001b[?25hBuilding wheels for collected packages: pyspark\n",
+      "  Building wheel for pyspark (setup.py) ... \u001b[?25l\u001b[?25hdone\n",
+      "  Created wheel for pyspark: filename=pyspark-3.0.1-py2.py3-none-any.whl size=204612243 sha256=68349089559efa6a631fcf5e2472ce066aaf81343ea8f6d4759bf5f9f3e870b5\n",
+      "  Stored in directory: /root/.cache/pip/wheels/5e/bd/07/031766ca628adec8435bb40f0bd83bb676ce65ff4007f8e73f\n",
+      "Successfully built pyspark\n",
+      "Installing collected packages: py4j, pyspark\n",
+      "Successfully installed py4j-0.10.9 pyspark-3.0.1\n"
+     ]
+    }
+   ],
+   "source": [
+    "pip install pyspark"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 34
+    },
+    "colab_type": "code",
+    "id": "Ca-Nxt7p4KhB",
+    "outputId": "d16d4234-712c-4834-937f-b972f30f1357"
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Mounted at /content/drive\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Mounting drive: to access the text file from drive\n",
+    "from google.colab import drive\n",
+    "drive.mount('/content/drive')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "Vve2EwJpyfRW"
+   },
+   "outputs": [],
+   "source": [
+    "import sys\n",
+    "from pyspark import SparkContext, SparkConf\n",
+    "import itertools"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "nfIU2KSJte9_"
+   },
+   "outputs": [],
+   "source": [
+    "sc = SparkContext(\"local\",\" Project - 1: Spark\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "ix-Nxko_fJVb"
+   },
+   "outputs": [],
+   "source": [
+    "file1 = '/content/drive/My Drive/3Sem/CS5683/Projects/Project 1/browsing.txt'"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "036abYT2bQgo"
+   },
+   "source": [
+    "### Step 1: Importing text file"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "9yIIwcA9CK7L"
+   },
+   "outputs": [],
+   "source": [
+    "#importing Text file \n",
+    "fileRDD1 = sc.textFile(file1)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "7DAiPmbRRF9r"
+   },
+   "outputs": [],
+   "source": [
+    "# Step 1: Generating baskets and storing in a list\n",
+    "rdd2 = fileRDD1.map(lambda x: x.split())\n",
+    "baskets=[]\n",
+    "\n",
+    "for i in rdd2.toLocalIterator():\n",
+    "  baskets.append(i)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "q7CCwIg-bMLc"
+   },
+   "source": [
+    "### Step2: Baskets into an RDD"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "SyQG1_NRuyK3"
+   },
+   "outputs": [],
+   "source": [
+    "# Step 2: Collecting baskets list into an rdd\n",
+    "\n",
+    "stand_list = []\n",
+    "stand_list.append(baskets)\n",
+    "rdd3= sc.parallelize(stand_list)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "3F26bpgQbC51"
+   },
+   "source": [
+    "### Step 3: Generating singletons\n",
+    "This section has frequent items: C1 and L1"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "QLN4j28Husir"
+   },
+   "outputs": [],
+   "source": [
+    "#Step 3a\n",
+    "# function for filtering candidate itemset with minimum support thresold value i.e. s=85 in our case\n",
+    "\n",
+    "def filter_itemsets(itemset,s):\n",
+    "  for i in list(itemset.keys()):\n",
+    "    if itemset[i] < s:\n",
+    "      del itemset[i]\n",
+    "  return itemset"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "XyVFvkJZTMNB"
+   },
+   "outputs": [],
+   "source": [
+    "# Declaring the minimum support thresold value for the project\n",
+    "sup = 85"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "6d4j9K-VurJ5"
+   },
+   "outputs": [],
+   "source": [
+    "# Step 3b\n",
+    "# generating frequent itemsets: k=1 (Singletons)\n",
+    "def singletons(x,s):\n",
+    "  single = dict()\n",
+    "  for i in x:\n",
+    "    for j in i:\n",
+    "      try: \n",
+    "        single[j] += 1\n",
+    "      except KeyError as e:\n",
+    "        single[j] = 1\n",
+    "  single = filter_itemsets(single,s)\n",
+    "  return x,single\n",
+    "\n",
+    "#rdd4: has singleton and baskets (makes it easy to generating k=2,3,4 sets)\n",
+    "rdd4 = rdd3.map(lambda x: singletons(x,sup))\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "r00CMe_P-B4E"
+   },
+   "outputs": [],
+   "source": [
+    "from collections import Counter"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "lb0sbCgZa1YJ"
+   },
+   "source": [
+    "### Step 4: Generating L2,L3,L4: Duplets,Triplets and Quadruplets\n",
+    "This section contains\n",
+    "- Recursive logic \n",
+    "- Candidate items: C2,C3,C4\n",
+    "- frequent items: L2,L3,L4"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "CB4SRJywu3eO"
+   },
+   "outputs": [],
+   "source": [
+    "# Step 4: \n",
+    "# this function Generates: Duplets, triplets, quadruplets\n",
+    "\n",
+    "#starting the recursive loop: freq_items with duplets\n",
+    "k = 2\n",
+    "\n",
+    "# a blank list is created, to store L1, L2,L3,L4 list (Singletong, Duplets, triplets, quadruplets)\n",
+    "final_list = []\n",
+    "\n",
+    "\n",
+    "#baskets: main baskets list\n",
+    "#prev: frequent itemsets\n",
+    "#items: ID number of the items\n",
+    "#s = support \n",
+    "#k = inital recurrsive loop value for generating frequent itemsets\n",
+    "\n",
+    "def gen_freq_items(baskets,prev,items,s,k):\n",
+    "  # keeping constraint of collecting max quadruplets using while condition\n",
+    "  while k<=4:\n",
+    "\n",
+    "    if (k==2): \n",
+    "      # creating a blank dictonary for duplets and we will collect as the loop ends\n",
+    "      c1 = dict() \n",
+    "\n",
+    "      # each key takes \"item\" value\n",
+    "      for key in prev:\n",
+    "        for item in items:\n",
+    "          #forming candidate items in a tuple: C2 \n",
+    "          union_list = sorted((item,)+(key,))\n",
+    "          union_tuple = tuple(union_list) \n",
+    "\n",
+    "          # tuple length is 2, it passes through the condition (i.e. duplets)\n",
+    "          if len(union_tuple) == k: \n",
+    "            union_values = dict(Counter(union_tuple))\n",
+    "            for value in union_values.values():\n",
+    "              # removing duplicate items which repeated more than once: Eg: - (a,a) combination\n",
+    "              if (value<2):\n",
+    "                #initializing the inital support value to 0\n",
+    "                c1[union_tuple] = 0\n",
+    "      \n",
+    "      # C2: candidate Item list (duplets)\n",
+    "      # updating the support frequency value for the candidate list\n",
+    "      for b in baskets:\n",
+    "        for j in c1:\n",
+    "          if list(j)<=(b):\n",
+    "            c1[j] = c1[j] + 1\n",
+    "\n",
+    "      # Generating L2 list (after satisfying min. support criteria ) by calling the filter_itemsets function (Ref: Asssignment 2)      \n",
+    "      c1 = filter_itemsets(c1,s)\n",
+    "      k = k+1  #increasing the k-value for next loop\n",
+    "      # appending singletongs to final list\n",
+    "      final_list.append(prev) \n",
+    "      # appending duplets to final list\n",
+    "      final_list.append(c1)\n",
+    "      # storing the duplets in prev and then using this for calling function\n",
+    "      prev = c1\n",
+    "      gen_freq_items(baskets,prev,items,s,k)\n",
+    "\n",
+    "    else :\n",
+    "      #initializing the blank dictionary for triplet and quadruple generation\n",
+    "      c1 = dict() \n",
+    "      # prev has duplets\n",
+    "      for key in prev:\n",
+    "        for item in items:\n",
+    "          union_list = sorted(key + (item,))\n",
+    "          union_tuple = tuple(union_list) \n",
+    "          # tuple length is 3 or 4, it passes through the condition (i.e. triplets or quadraples)\n",
+    "          if len(union_tuple) == k:         \n",
+    "            union_values = dict(Counter(union_tuple))\n",
+    "            for value in union_values.values():\n",
+    "              # removing duplicate items which repeated more than once: Eg: - (a,a,a) combination\n",
+    "              if (value<2):\n",
+    "                c1[union_tuple] = 0\n",
+    "      # C3,4: candidate Item list (triplets, quadraples)\n",
+    "      # updating the support frequency value for the candidate list\n",
+    "      for b in baskets:\n",
+    "        for j in c1:\n",
+    "          if list(j)<=(b):\n",
+    "            c1[j] = c1[j] + 1\n",
+    "      # Generating L3,4 list (after satisfying min. support criteria ) by calling the filter_itemsets function (Ref: Asssignment 2)\n",
+    "      c1 = filter_itemsets(c1,s)\n",
+    "      k = k+1 #increasing the k-value for next loop\n",
+    "      \n",
+    "      # appending triplets,quadraples to final_list\n",
+    "      final_list.append(c1)\n",
+    "      #storing triplets in prev\n",
+    "      prev = c1\n",
+    "      gen_freq_items(baskets,prev,items,s,k)\n",
+    "    return final_list"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "UVvkchmnh3nh"
+   },
+   "outputs": [],
+   "source": [
+    "sup = 85\n",
+    "\n",
+    "# rdd5 has singletons, duplets, triplets, quadraples\n",
+    "rdd5 = rdd4.map(lambda x : gen_freq_items(x[0],x[1],list(x[1].keys()),sup,k))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "eckGDeB10Oro"
+   },
+   "outputs": [],
+   "source": [
+    "from itertools import combinations"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "K_B-Wee7av6Q"
+   },
+   "source": [
+    "### Step 5: Generating Association Rules\n",
+    "This section gives the output of association rules in the required format metioned in the \"Project 1: Problem Statement\""
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "tmqPlC6B5COX"
+   },
+   "outputs": [],
+   "source": [
+    "# Step 5a\n",
+    "# function which return supprt value, by comparing with an item\n",
+    "def support_fun(main_list, compare_item):\n",
+    "  #as singleton keys are strings, len(compare_item)=1\n",
+    "  if len(compare_item) == 1:\n",
+    "    for key,sup_value in main_list[0].items():\n",
+    "      if key == compare_item:\n",
+    "        return sup_value\n",
+    "  # if compare item is duplet, triplet then it passes through this loop\n",
+    "  else :\n",
+    "    for key,sup_value in main_list[len(compare_item)-1].items():\n",
+    "      item_tuple = tuple(sorted(compare_item))\n",
+    "      if key == item_tuple:\n",
+    "        return sup_value"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "_5jxfQoGKGGx"
+   },
+   "outputs": [],
+   "source": [
+    "#Step 5b\n",
+    "# Generating Association Rules\n",
+    "\n",
+    "# This function returns association rules in the format mentioned in the project document\n",
+    "def associationrule(x,c):\n",
+    "  #final rules will store all the rules generated\n",
+    "  final_rules = []\n",
+    "  for i in range(1,len(x)):\n",
+    "    for key,value in x[i].items():\n",
+    "      length = len(key)\n",
+    "      for i in range(1,length):\n",
+    "        # all combinations for writing possible association rules\n",
+    "        subsets = list(combinations(set(key), i))        \n",
+    "        sub_2 = []\n",
+    "        for element in subsets:\n",
+    "          sub_2.append(list(element))\n",
+    "        for i in sub_2:\n",
+    "          if len(i)==len(key)-1:\n",
+    "            #getting support value from the function\n",
+    "            sub_2_support = support_fun(x,i)\n",
+    "            #if the combination is not present in L1 or L2 or L3: returns none and case is handled accordingly\n",
+    "            if sub_2_support is None:\n",
+    "              continue\n",
+    "          else:\n",
+    "            #assigning very high support value so that, its elimated by the filter confidence >c\n",
+    "            sub_2_support=10**10\n",
+    "\n",
+    "          confidence = 100*(value/sub_2_support)\n",
+    "          #filtering rules with C > 85 and right side of the rule to only element\n",
+    "          if (confidence > c) and (len(set(key).difference(set(i)))<2) and (len(set(key).difference(set(i)))>0):\n",
+    "            prefix = str(set(i)) + \"=>\" +str(set(key).difference(set(i))) + \" ;  Confidence= \"\n",
+    "            sufix = \"%.\"\n",
+    "            output_format = (prefix,str(round(confidence,2)),sufix)\n",
+    "            final_rules.append(output_format)\n",
+    "            #sorting in descing order of confidence\n",
+    "            final_rules.sort(key = lambda x: float(x[1]),reverse = True)\n",
+    "  return final_rules"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "yo4gECXoQTa-"
+   },
+   "outputs": [],
+   "source": [
+    "# Step 5c\n",
+    "conf = 90\n",
+    "rdd6 = rdd5.map(lambda x : associationrule(x,conf))\n",
+    "rdd7 = rdd6.map(lambda x: [''.join(tups) for tups in x]).flatMap(lambda line: line)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "0T_x7nuidzbz"
+   },
+   "source": [
+    "#### Output file: \n",
+    "\"output_Pankaj\" will have all the association rules "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "3hWZWn50QlkK"
+   },
+   "outputs": [],
+   "source": [
+    "rdd7.saveAsTextFile('/content/output_Pankaj')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "xUZgHfld27rP"
+   },
+   "source": [
+    "### References:\n",
+    "1. https://www.geeksforgeeks.org/python-join-tuple-elements-in-a-list/\n",
+    "2. https://github.com/DenisDsh/Apriori-Algorithm---Frequent-Itemsets-Association-Rules/blob/master/association_rules.py\n",
+    "3. https://github.com/zhang943/Spark-Apriori/blob/master/src/apriori.py\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "87-xvs5528I4"
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "colab": {
+   "collapsed_sections": [],
+   "name": " Test_code_Big Data",
+   "provenance": [],
+   "toc_visible": true
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 1
+}
